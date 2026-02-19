@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Complaint Analyzer - Production</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-color: #4f46e5;
+            --secondary-color: #7c3aed;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --dark-color: #1f2937;
+            --light-bg: #f9fafb;
+            --border-color: #e5e7eb;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px 0;
+        }
+
+        .main-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+            animation: fadeInDown 0.8s ease;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.95;
+        }
+
+        .main-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+            animation: fadeInUp 0.8s ease;
+        }
+
+        .card-header-custom {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .card-header-custom h2 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .card-body-custom {
+            padding: 40px;
+        }
+
+        .form-label {
+            font-weight: 600;
+            color: var(--dark-color);
+            margin-bottom: 8px;
+        }
+
+        .form-control {
+            border: 2px solid var(--border-color);
+            border-radius: 10px;
+            padding: 12px 15px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(79, 70, 229, 0.25);
+        }
+
+        .btn-predict {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 12px 30px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .btn-predict:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(79, 70, 229, 0.3);
+        }
+
+        .result-card {
+            background: var(--light-bg);
+            border-radius: 15px;
+            padding: 30px;
+            margin-top: 30px;
+            border: 2px solid var(--border-color);
+            animation: slideInUp 0.5s ease;
+        }
+
+        .result-item {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-left: 4px solid var(--primary-color);
+            transition: transform 0.3s ease;
+        }
+
+        .result-item:hover {
+            transform: translateX(5px);
+        }
+
+        .result-label {
+            font-weight: 600;
+            color: #6b7280;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+
+        .result-value {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--dark-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .confidence-badge {
+            background: var(--success-color);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .priority-high {
+            border-left-color: var(--danger-color) !important;
+        }
+
+        .priority-medium {
+            border-left-color: var(--warning-color) !important;
+        }
+
+        .priority-low {
+            border-left-color: var(--success-color) !important;
+        }
+
+        .alert-custom {
+            border-radius: 10px;
+            border: none;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            animation: shake 0.5s ease;
+        }
+
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+            border-width: 0.3em;
+        }
+
+        .features-section {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            margin-top: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .feature-card {
+            text-align: center;
+            padding: 30px 20px;
+            border-radius: 15px;
+            background: var(--light-bg);
+            transition: transform 0.3s ease;
+            height: 100%;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            color: var(--primary-color);
+        }
+
+        .feature-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: var(--dark-color);
+        }
+
+        .feature-description {
+            color: #6b7280;
+            line-height: 1.6;
+        }
+
+        .api-section {
+            background: #1f2937;
+            color: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-top: 30px;
+        }
+
+        .code-block {
+            background: #374151;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .card-body-custom {
+                padding: 20px;
+            }
+            
+            .features-section {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <!-- Header -->
+        <div class="header">
+            <h1><i class="fas fa-brain"></i> AI Complaint Analyzer</h1>
+            <p>Production-Ready Complaint Classification & Smart Routing</p>
+        </div>
+
+        <!-- Main Card -->
+        <div class="main-card">
+            <div class="card-header-custom">
+                <h2><i class="fas fa-comments"></i> Submit Your Complaint</h2>
+                <p>Our AI will analyze and route your complaint to the right department</p>
+            </div>
+            
+            <div class="card-body-custom">
+                <!-- Error/Success Messages -->
+                {% if error %}
+                <div class="alert alert-danger alert-custom" role="alert">
+                    <i class="fas fa-exclamation-triangle"></i> {{ error }}
+                </div>
+                {% endif %}
+
+                {% if success %}
+                <div class="alert alert-success alert-custom" role="alert">
+                    <i class="fas fa-check-circle"></i> Complaint analyzed successfully!
+                </div>
+                {% endif %}
+
+                <!-- Complaint Form -->
+                <form method="POST" action="/predict" id="complaintForm">
+                    <div class="mb-4">
+                        <label for="complaint_text" class="form-label">
+                            <i class="fas fa-pencil-alt"></i> Describe Your Complaint
+                        </label>
+                        <textarea 
+                            class="form-control" 
+                            id="complaint_text" 
+                            name="complaint_text" 
+                            rows="6" 
+                            placeholder="Please describe your complaint in detail. For example: 'I was charged $99.99 for a service I didn't subscribe to and I can't login to my account'"
+                            required>{{ complaint_text or '' }}</textarea>
+                        <div class="form-text">
+                            <i class="fas fa-info-circle"></i> 
+                            Minimum 10 characters, maximum 5000 characters
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-predict" id="predictBtn">
+                        <i class="fas fa-magic"></i> Analyze Complaint
+                    </button>
+                </form>
+
+                <!-- Loading Spinner -->
+                <div class="loading-spinner" id="loadingSpinner">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Analyzing...</span>
+                    </div>
+                    <p class="mt-3">Analyzing your complaint...</p>
+                </div>
+
+                <!-- Results Section -->
+                {% if result %}
+                <div class="result-card">
+                    <h3 class="text-center mb-4">
+                        <i class="fas fa-clipboard-check"></i> Analysis Results
+                    </h3>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="result-item">
+                                <div class="result-label">Category</div>
+                                <div class="result-value">
+                                    <span>{{ result.category_icon }}</span>
+                                    <span>{{ result.category }}</span>
+                                    <span class="confidence-badge">
+                                        {{ "%.1f"|format(result.category_confidence * 100) }}% confidence
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <div class="result-item priority-{{ result.priority.lower().replace(' ', '-') }}">
+                                <div class="result-label">Priority Level</div>
+                                <div class="result-value">
+                                    <span style="color: {{ result.priority_color }}">
+                                        <i class="fas fa-flag"></i>
+                                    </span>
+                                    <span>{{ result.priority }}</span>
+                                    <span class="confidence-badge">
+                                        {{ "%.1f"|format(result.priority_confidence * 100) }}% confidence
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-12 mb-3">
+                            <div class="result-item">
+                                <div class="result-label">Assigned Department</div>
+                                <div class="result-value">
+                                    <i class="fas fa-building"></i>
+                                    {{ result.department }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Features Section -->
+        <div class="features-section">
+            <h2 class="text-center mb-4">
+                <i class="fas fa-star"></i> System Features
+            </h2>
+            
+            <div class="row">
+                <div class="col-md-3 mb-4">
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-brain"></i>
+                        </div>
+                        <div class="feature-title">AI-Powered</div>
+                        <div class="feature-description">
+                            Advanced NLP and machine learning for accurate complaint classification
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-3 mb-4">
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-tachometer-alt"></i>
+                        </div>
+                        <div class="feature-title">Real-time Analysis</div>
+                        <div class="feature-description">
+                            Instant complaint processing with immediate results and routing
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-3 mb-4">
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-route"></i>
+                        </div>
+                        <div class="feature-title">Smart Routing</div>
+                        <div class="feature-description">
+                            Automatic department assignment based on complaint category
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-3 mb-4">
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="feature-title">Priority Detection</div>
+                        <div class="feature-description">
+                            Intelligent priority assessment for efficient complaint handling
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- API Section -->
+        <div class="api-section">
+            <h3 class="mb-4">
+                <i class="fas fa-code"></i> REST API Integration
+            </h3>
+            
+            <p>Integrate our complaint analysis system into your applications using our REST API:</p>
+            
+            <div class="code-block">
+POST /predict
+Content-Type: application/json
+
+{
+    "complaint_text": "I was charged $99.99 for a service I didn't subscribe to"
+}
+            </div>
+            
+            <div class="code-block">
+Response:
+{
+    "status": "success",
+    "predictions": {
+        "category": "Billing",
+        "priority": "High",
+        "department": "Finance Department",
+        "category_confidence": 0.9234,
+        "priority_confidence": 0.8567
+    }
+}
+            </div>
+            
+            <div class="mt-3">
+                <button class="btn btn-light" onclick="testAPI()">
+                    <i class="fas fa-play"></i> Test API
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Form submission handling
+        document.getElementById('complaintForm').addEventListener('submit', function(e) {
+            const btn = document.getElementById('predictBtn');
+            const spinner = document.getElementById('loadingSpinner');
+            const form = document.getElementById('complaintForm');
+            
+            // Show loading state
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analyzing...';
+            spinner.style.display = 'block';
+            
+            // Hide results section if exists
+            const results = document.querySelector('.result-card');
+            if (results) {
+                results.style.display = 'none';
+            }
+        });
+
+        // Character counter
+        const textarea = document.getElementById('complaint_text');
+        const maxLength = 5000;
+        
+        textarea.addEventListener('input', function() {
+            const currentLength = this.value.length;
+            const remaining = maxLength - currentLength;
+            
+            // Update character count display
+            let formText = this.nextElementSibling;
+            if (formText && formText.classList.contains('form-text')) {
+                formText.innerHTML = `
+                    <i class="fas fa-info-circle"></i> 
+                    ${currentLength} / ${maxLength} characters
+                    ${remaining < 100 ? '<span class="text-danger">(' + remaining + ' remaining)</span>' : ''}
+                `;
+            }
+            
+            // Change border color based on length
+            if (currentLength > maxLength) {
+                this.classList.add('is-invalid');
+            } else {
+                this.classList.remove('is-invalid');
+            }
+        });
+
+        // Test API function
+        function testAPI() {
+            const testData = {
+                complaint_text: "I was charged $99.99 for a service I didn't subscribe to and I can't login to my account"
+            };
+            
+            fetch('/predict', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(testData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('API Test Successful!\n\n' + 
+                          'Category: ' + data.predictions.category + '\n' +
+                          'Priority: ' + data.predictions.priority + '\n' +
+                          'Department: ' + data.predictions.department);
+                } else {
+                    alert('API Test Failed: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('API Test Error: ' + error.message);
+            });
+        }
+
+        // Auto-resize textarea
+        textarea.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        });
+
+        // Add smooth scrolling
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                }
+            });
+        });
+    </script>
+</body>
+</html>
