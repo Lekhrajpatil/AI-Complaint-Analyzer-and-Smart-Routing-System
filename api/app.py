@@ -100,7 +100,7 @@ def tokenize_and_lemmatize(text):
         
         for token in tokens:
             if token not in stop_words and len(token) > 2:
-                lemmatized_token = lemmmatizer.lemmatize(token)
+                lemmatized_token = lemmatizer.lemmatize(token)
                 lemmatized_tokens.append(lemmatized_token)
         
         return ' '.join(lemmatized_tokens)
@@ -335,9 +335,9 @@ def model_info():
         }), 500
 
 # Vercel serverless handler
-def handler(request):
+def handler(environ, start_response):
     """Vercel serverless function handler"""
-    return app(request.environ, lambda status, headers: None)
+    return app(environ, start_response)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
