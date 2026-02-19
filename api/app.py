@@ -3,7 +3,7 @@ Production-ready Flask API for AI Complaint Analyzer
 Optimized for Vercel serverless deployment
 """
 
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify
 import os
 import pickle
 import logging
@@ -26,9 +26,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize Flask app
-app = Flask(__name__, 
-           template_folder='../templates',
-           static_folder='../static')
+app = Flask(__name__)
 
 # Global variables for models
 models_loaded = False
@@ -53,11 +51,13 @@ DEPARTMENT_MAPPING = {
 def download_nltk_data():
     """Download required NLTK data"""
     try:
-        nltk.download('punkt', quiet=True)
-        nltk.download('punkt_tab', quiet=True)
-        nltk.download('stopwords', quiet=True)
-        nltk.download('wordnet', quiet=True)
-        nltk.download('omw-1.4', quiet=True)
+        nltk.data.path.append('/tmp/nltk_data')
+        os.makedirs('/tmp/nltk_data', exist_ok=True)
+        
+        nltk.download('punkt', download_dir='/tmp/nltk_data', quiet=True)
+        nltk.download('stopwords', download_dir='/tmp/nltk_data', quiet=True)
+        nltk.download('wordnet', download_dir='/tmp/nltk_data', quiet=True)
+        nltk.download('omw-1.4', download_dir='/tmp/nltk_data', quiet=True)
     except Exception as e:
         logger.warning(f"NLTK download failed: {e}")
 
@@ -104,7 +104,8 @@ def tokenize_and_lemmatize(text):
                 lemmatized_tokens.append(lemmatized_token)
         
         return ' '.join(lemmatized_tokens)
-    except:
+    except Exception as e:
+        logger.error(f"Tokenization error: {e}")
         return text
 
 def preprocess_text(text):
@@ -123,6 +124,8 @@ def load_models():
     global category_encoder, priority_encoder, lemmatizer, stop_words
     
     try:
+        logger.info("Starting to load models...")
+        
         # Download NLTK data
         download_nltk_data()
         
@@ -132,43 +135,55 @@ def load_models():
         
         # Load models from pickle files
         model_dir = os.path.dirname(os.path.abspath(__file__))
+        logger.info(f"Model directory: {model_dir}")
         
         # Load complete preprocessor
         preprocessor_path = os.path.join(model_dir, 'preprocessor.pkl')
+        logger.info(f"Loading preprocessor from: {preprocessor_path}")
+        
         if os.path.exists(preprocessor_path):
             with open(preprocessor_path, 'rb') as f:
                 preprocessor_data = pickle.load(f)
                 vectorizer = preprocessor_data['tfidf_vectorizer']
                 category_encoder = preprocessor_data['category_encoder']
                 priority_encoder = preprocessor_data['priority_encoder']
+            logger.info("Preprocessor loaded successfully")
         else:
-            logger.error("Preprocessor file not found")
+            logger.error(f"Preprocessor file not found at {preprocessor_path}")
             return False
         
         # Load category model
         category_model_path = os.path.join(model_dir, 'category_model.pkl')
+        logger.info(f"Loading category model from: {category_model_path}")
+        
         if os.path.exists(category_model_path):
             with open(category_model_path, 'rb') as f:
                 category_model = pickle.load(f)
+            logger.info("Category model loaded successfully")
         else:
-            logger.error("Category model file not found")
+            logger.error(f"Category model file not found at {category_model_path}")
             return False
         
         # Load priority model
         priority_model_path = os.path.join(model_dir, 'priority_model.pkl')
+        logger.info(f"Loading priority model from: {priority_model_path}")
+        
         if os.path.exists(priority_model_path):
             with open(priority_model_path, 'rb') as f:
                 priority_model = pickle.load(f)
+            logger.info("Priority model loaded successfully")
         else:
-            logger.error("Priority model file not found")
+            logger.error(f"Priority model file not found at {priority_model_path}")
             return False
         
         models_loaded = True
-        logger.info("Models loaded successfully")
+        logger.info("All models loaded successfully")
         return True
         
     except Exception as e:
         logger.error(f"Error loading models: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         return False
 
 def validate_complaint_text(text):
@@ -251,6 +266,8 @@ def predict_complaint(complaint_text):
         
     except Exception as e:
         logger.error(f"Error in prediction: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         return None, str(e)
 
 # Load models on startup
@@ -258,8 +275,12 @@ load_models()
 
 @app.route('/')
 def index():
-    """Serve the main page"""
-    return render_template('index.html')
+    """Health check endpoint"""
+    return jsonify({
+        'status': 'healthy',
+        'message': 'AI Complaint Analyzer API is running',
+        'models_loaded': models_loaded
+    })
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -272,36 +293,32 @@ def predict():
         else:
             complaint_text = request.form.get('complaint_text', '')
         
+        logger.info(f"Received prediction request: {complaint_text[:100]}...")
+        
         # Make prediction
         result, error = predict_complaint(complaint_text)
         
         if error:
-            if request.is_json:
-                return jsonify({
-                    'error': error,
-                    'status': 'error'
-                }), 400
-            else:
-                return render_template('index.html', error=error)
-        
-        if request.is_json:
+            logger.error(f"Prediction error: {error}")
             return jsonify({
-                'status': 'success',
-                'predictions': result
-            })
-        else:
-            return render_template('index.html', result=result, success=True)
+                'error': error,
+                'status': 'error'
+            }), 400
+        
+        logger.info("Prediction successful")
+        return jsonify({
+            'status': 'success',
+            'predictions': result
+        })
             
     except Exception as e:
         logger.error(f"Error in predict endpoint: {e}")
-        if request.is_json:
-            return jsonify({
-                'error': 'An error occurred during prediction',
-                'status': 'error'
-            }), 500
-        else:
-            return render_template('index.html', 
-                                 error='An error occurred during prediction')
+        import traceback
+        logger.error(traceback.format_exc())
+        return jsonify({
+            'error': 'An error occurred during prediction',
+            'status': 'error'
+        }), 500
 
 @app.route('/health')
 def health():
